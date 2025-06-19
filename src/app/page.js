@@ -6,19 +6,53 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Music, Bell, Smartphone, Users, Zap, Heart } from "lucide-react"
 import { toast } from "react-toastify"
+import { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from "@/components/ui/input-otp"
 
 export default function MusicNotifyLanding() {
   const [phoneNumber, setPhoneNumber] = useState("")
   const [isSubmitted, setIsSubmitted] = useState(false)
+  const [isValid, setIsValid] = useState(true)
+
+  // Phone number validation function
+  const validatePhoneNumber = (phone) => {
+    const cleaned = phone.replace(/\D/g, '')
+    if (cleaned.length === 10) {
+      return true
+    }
+    if (cleaned.length === 11 && cleaned.startsWith('1')) {
+      return true
+    }
+    return false
+  }
+
+  const handlePhoneChange = (e) => {
+    const value = e.target.value
+    setPhoneNumber(value)
+    
+    // Only validate if user has entered something
+    if (value.trim()) {
+      setIsValid(validatePhoneNumber(value))
+    } else {
+      setIsValid(true) // Reset validation state when empty
+    }
+  }
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (phoneNumber) {
-      setIsSubmitted(true)
-      toast.success("Phone number submitted")
-    } else {
+    
+    if (!phoneNumber.trim()) {
       toast.error("Please enter a phone number")
+      return
     }
+    
+    if (!validatePhoneNumber(phoneNumber)) {
+      toast.error("Please enter a valid phone number")
+      setIsValid(false)
+      return
+    }
+    
+    setIsSubmitted(true)
+    toast.success("Phone number submitted successfully!")
   }
 
   return (
@@ -36,7 +70,7 @@ export default function MusicNotifyLanding() {
       </header>
 
       {/* Hero Section */}
-      <main className="container mx-auto px-4 py-12">
+      <main className="container mx-auto px-4 py-6">
         <div className="text-center max-w-4xl mx-auto">
           <div className="mb-8">
             <div className="inline-flex items-center bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 mb-6">
@@ -67,11 +101,16 @@ export default function MusicNotifyLanding() {
                     type="tel"
                     placeholder="Enter your phone number"
                     value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    className="pl-12 h-14 text-lg bg-white/10 backdrop-blur-sm border-white/20 text-white placeholder:text-white/60 focus:border-purple-400 focus:ring-purple-400"
+                    onChange={handlePhoneChange}
+                    className={`pl-12 h-14 text-lg bg-white/10 backdrop-blur-sm border-white/20 text-white placeholder:text-white/60 focus:border-purple-400 focus:ring-purple-400 ${
+                      !isValid && phoneNumber.trim() ? 'border-red-400 focus:border-red-400 focus:ring-red-400' : ''
+                    }`}
                     required
                   />
                 </div>
+                {!isValid && phoneNumber.trim() && (
+                  <p className="text-red-400 text-sm text-center">Please enter a valid 10-digit phone number</p>
+                )}
                 <Button
                   type="submit"
                   size="lg"
@@ -82,16 +121,62 @@ export default function MusicNotifyLanding() {
                 <p className="text-white/60 text-sm">Free to start • No spam • Unsubscribe anytime</p>
               </form>
             ) : (
-              <div className="bg-green-500/20 backdrop-blur-sm border border-green-400/30 rounded-lg p-6">
-                <div className="flex items-center justify-center mb-4">
-                  <div className="bg-green-500 rounded-full p-2">
-                    <Bell className="h-6 w-6 text-white" />
+              <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-8 max-w-md mx-auto">
+                <div className="text-center mb-6">
+                  <div className="bg-blue-500 rounded-full p-3 w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                    <Bell className="h-8 w-8 text-white" />
+                  </div>
+                  <h3 className="text-white text-xl font-semibold mb-2">Verify Your Number</h3>
+                  <p className="text-white/80 text-sm">
+                    We've sent a 6-digit code to <span className="font-semibold">{phoneNumber}</span>
+                  </p>
+                </div>
+                
+                <div className="mb-6">
+                  <label className="block text-white/90 text-sm font-medium mb-3 text-center">
+                    Enter verification code
+                  </label>
+                  <div className="flex justify-center">
+                    <InputOTP 
+                      maxLength={6}
+                    >
+                      <InputOTPGroup className="gap-2">
+                        <InputOTPSlot index={0} className="w-12 h-12 text-lg font-semibold bg-white/10 border border-white/20 text-white focus:border-blue-400 focus:ring-blue-400 rounded-l-md" />
+                        <InputOTPSlot index={1} className="w-12 h-12 text-lg font-semibold bg-white/10 border border-white/20 text-white focus:border-blue-400 focus:ring-blue-400" />
+                        <InputOTPSlot index={2} className="w-12 h-12 text-lg font-semibold bg-white/10 border border-white/20 text-white focus:border-blue-400 focus:ring-blue-400 rounded-r-md" />
+                        <InputOTPSeparator className="text-white/40" />
+                        <InputOTPSlot index={3} className="w-12 h-12 text-lg font-semibold bg-white/10 border border-white/20 text-white focus:border-blue-400 focus:ring-blue-400 rounded-l-md" />
+                        <InputOTPSlot index={4} className="w-12 h-12 text-lg font-semibold bg-white/10 border border-white/20 text-white focus:border-blue-400 focus:ring-blue-400" />
+                        <InputOTPSlot index={5} className="w-12 h-12 text-lg font-semibold bg-white/10 border border-white/20 text-white focus:border-blue-400 focus:ring-blue-400 rounded-r-md" />
+                      </InputOTPGroup>
+                    </InputOTP>
                   </div>
                 </div>
-                <h3 className="text-white text-xl font-semibold mb-2">You're all set!</h3>
-                <p className="text-white/80">
-                  We'll send you a confirmation text shortly. Get ready to discover new music!
-                </p>
+                
+                <div className="text-center space-y-4">
+                  <Button
+                    size="lg"
+                    className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold"
+                  >
+                    Verify & Complete Setup
+                  </Button>
+                  
+                  <div className="flex items-center justify-center space-x-4 text-sm">
+                    <button className="text-white/60 hover:text-white transition-colors">
+                      Didn't receive code?
+                    </button>
+                    <button className="text-blue-400 hover:text-blue-300 transition-colors font-medium">
+                      Resend
+                    </button>
+                  </div>
+                  
+                  <button 
+                    onClick={() => setIsSubmitted(false)}
+                    className="text-white/60 hover:text-white transition-colors text-sm"
+                  >
+                    ← Back to phone number
+                  </button>
+                </div>
               </div>
             )}
           </div>
