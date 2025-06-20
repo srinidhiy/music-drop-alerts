@@ -7,11 +7,16 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Music, Bell, Smartphone, Users, Zap, Heart } from "lucide-react"
 import { toast } from "react-toastify"
 import { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from "@/components/ui/input-otp"
+import { Router } from "next/router"
+import { useRouter } from "next/navigation"
 
 export default function MusicNotifyLanding() {
+  const router = useRouter()
   const [phoneNumber, setPhoneNumber] = useState("")
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [isValid, setIsValid] = useState(true)
+  const [otp, setOtp] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
 
   // Phone number validation function
   const validatePhoneNumber = (phone) => {
@@ -37,7 +42,7 @@ export default function MusicNotifyLanding() {
     }
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     
     if (!phoneNumber.trim()) {
@@ -50,9 +55,67 @@ export default function MusicNotifyLanding() {
       setIsValid(false)
       return
     }
+
+    setIsLoading(true)
     
-    setIsSubmitted(true)
-    toast.success("Phone number submitted successfully!")
+    try {
+      const response = await fetch('/api/verify-phone', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phoneNumber }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setIsSubmitted(true)
+        toast.success("Verification code sent!")
+      } else {
+        toast.error(data.error || "Failed to send verification code")
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      toast.error("Something went wrong. Please try again.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleOTPComplete = async (value) => {
+    setOtp(value)
+    
+    if (value.length === 6) {
+      setIsLoading(true)
+      
+      try {
+        const response = await fetch('/api/verify-code', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            phoneNumber, 
+            code: value 
+          }),
+        })
+
+        const data = await response.json()
+
+        if (response.ok) {
+          toast.success("Phone number verified successfully!")
+          router.push("/artists")
+        } else {
+          toast.error(data.error || "Invalid verification code")
+        }
+      } catch (error) {
+        console.error('Error:', error)
+        toast.error("Something went wrong. Please try again.")
+      } finally {
+        setIsLoading(false)
+      }
+    }
   }
 
   return (
@@ -114,9 +177,10 @@ export default function MusicNotifyLanding() {
                 <Button
                   type="submit"
                   size="lg"
-                  className="w-full h-14 text-lg bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+                  disabled={isLoading}
+                  className="w-full h-14 text-lg bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Start Getting Notifications
+                  {isLoading ? "Sending..." : "Start Getting Notifications"}
                 </Button>
                 <p className="text-white/60 text-sm">Free to start • No spam • Unsubscribe anytime</p>
               </form>
@@ -139,6 +203,9 @@ export default function MusicNotifyLanding() {
                   <div className="flex justify-center">
                     <InputOTP 
                       maxLength={6}
+                      value={otp}
+                      onChange={(value) => setOtp(value)}
+                      onComplete={handleOTPComplete}
                     >
                       <InputOTPGroup className="gap-2">
                         <InputOTPSlot index={0} className="w-12 h-12 text-lg font-semibold bg-white/10 border border-white/20 text-white focus:border-blue-400 focus:ring-blue-400 rounded-l-md" />
