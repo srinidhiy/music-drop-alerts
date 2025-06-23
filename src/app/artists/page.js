@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Music, Search, Plus, X, Music2Icon } from "lucide-react"
 import { toast } from "react-toastify"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 
 export default function ArtistsPage() {
   const router = useRouter()
@@ -119,12 +120,9 @@ export default function ArtistsPage() {
             </div>
             <span className="text-white font-bold text-xl">TuneLert</span>
           </div>
-          <button 
-            onClick={() => router.back()}
-            className="text-white/60 hover:text-white transition-colors"
-          >
-            ← Back
-          </button>
+          <span className="text-white font-bold text-md">
+            <Link href="/profile">Profile</Link>
+          </span>        
         </div>
       </header>
 

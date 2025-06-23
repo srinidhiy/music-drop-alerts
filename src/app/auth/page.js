@@ -152,7 +152,7 @@ export default function Auth() {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
       toast.success("Signed in")
-      router.push("/artists")
+      router.push("/profile")
     } catch (error) {
       toast.error("Authentication failed")
     } finally {

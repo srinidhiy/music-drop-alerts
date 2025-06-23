@@ -2,10 +2,27 @@
 
 import { Button } from "@/components/ui/button"
 import { Music, Bell } from "lucide-react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { getCurrentUser } from "@/lib/supabase"
 
 export default function MusicNotifyLanding() {
   const router = useRouter()
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const user = await getCurrentUser()
+      console.log(user)
+      if (user) {
+        setIsLoggedIn(true)
+      } else {
+        setIsLoggedIn(false)
+      }
+    }
+    checkUser()
+  }, [])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
@@ -17,7 +34,10 @@ export default function MusicNotifyLanding() {
               <Music className="h-6 w-6 text-white" />
             </div>
             <span className="text-white font-bold text-xl">TuneLert</span>
-          </div>          
+          </div>  
+          <span className="text-white font-bold text-md">
+            {isLoggedIn ? <Link href="/profile">Profile</Link> : <Link href="/auth">Sign In</Link>}
+          </span>        
         </div>
       </header>
 
