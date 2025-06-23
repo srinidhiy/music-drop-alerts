@@ -46,7 +46,7 @@ export async function POST(request) {
     })
 
     const result = await response.json()
-
+    
     if (response.ok) {
       return NextResponse.json({
         success: true,
@@ -56,7 +56,7 @@ export async function POST(request) {
     } else {
       console.error('Twilio error:', result)
       return NextResponse.json(
-        { error: 'Failed to send verification code' },
+        { error: result.message || 'Failed to send verification code' },
         { status: 500 }
       )
     }

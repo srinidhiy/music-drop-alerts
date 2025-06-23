@@ -1,38 +1,72 @@
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 export const supabase = createClient(supabaseUrl, supabaseKey)
 
-// Database utility functions
-export async function createUser(phoneNumber) {
-  const { data, error } = await supabase
-    .from('users')
-    .insert([{ phone_number: phoneNumber }])
-    .select()
-    .single()
+// Auth functions
+export async function signInWithPhone(phoneNumber) {
+  console.log("signInWithPhone", phoneNumber)
+  const { data, error } = await supabase.auth.signInWithOtp({
+    phone: phoneNumber,
+    options: {
+      shouldCreateUser: true, // Creates user if they don't exist
+    }
+  })
 
   if (error) throw error
   return data
 }
 
-export async function getUserByPhone(phoneNumber) {
+export async function verifyOTP(phoneNumber, token) {
+  const { data, error } = await supabase.auth.verifyOtp({
+    phone: phoneNumber,
+    token: token,
+    type: 'sms'
+  })
+
+  if (error) throw error
+  return data
+}
+
+export async function signOut() {
+  const { error } = await supabase.auth.signOut()
+  if (error) throw error
+}
+
+// User profile functions
+export async function getCurrentUser() {
+  const { data: { user }, error } = await supabase.auth.getUser()
+  if (error) throw error
+  return user
+}
+
+export async function updateUserProfile(updates) {
+  const { data, error } = await supabase.auth.updateUser(updates)
+  if (error) throw error
+  return data
+}
+
+// User preferences functions
+export async function getUserPreferences(userId) {
   const { data, error } = await supabase
-    .from('users')
+    .from('user_preferences')
     .select('*')
-    .eq('phone_number', phoneNumber)
+    .eq('user_id', userId)
     .single()
 
   if (error && error.code !== 'PGRST116') throw error
   return data
 }
 
-export async function updateUserVerification(userId, verified = true) {
+export async function updateUserPreferences(userId, preferences) {
   const { data, error } = await supabase
-    .from('users')
-    .update({ phone_verified: verified })
-    .eq('id', userId)
+    .from('user_preferences')
+    .upsert([{
+      user_id: userId,
+      ...preferences
+    }])
     .select()
     .single()
 
@@ -40,21 +74,42 @@ export async function updateUserVerification(userId, verified = true) {
   return data
 }
 
-export async function saveUserArtists(userId, artists) {
-  const artistData = artists.map(artist => ({
-    user_id: userId,
-    artist_id: artist.id,
-    artist_name: artist.name,
-    source: 'spotify'
-  }))
-
+// Artist management functions
+export async function getUserArtists(userId) {
   const { data, error } = await supabase
     .from('user_artists')
-    .insert(artistData)
-    .select()
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
 
   if (error) throw error
   return data
+}
+
+export async function addUserArtist(userId, artist) {
+  const { data, error } = await supabase
+    .from('user_artists')
+    .insert([{
+      user_id: userId,
+      artist_id: artist.id,
+      artist_name: artist.name,
+      source: 'manual'
+    }])
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function removeUserArtist(userId, artistId) {
+  const { error } = await supabase
+    .from('user_artists')
+    .delete()
+    .eq('user_id', userId)
+    .eq('artist_id', artistId)
+
+  if (error) throw error
 }
 
 export async function saveSpotifyTokens(userId, tokens) {
