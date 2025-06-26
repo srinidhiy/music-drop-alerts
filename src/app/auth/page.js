@@ -135,6 +135,17 @@ export default function Auth() {
           if (userError) {
             console.error('Error creating user record:', userError)
           }
+
+          // Set session cookie
+          await fetch('/api/auth/session', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+              user: data.user
+            }),
+          })
         }
         
         toast.success("Account created!")
@@ -163,8 +174,20 @@ export default function Auth() {
     }
     setIsLoading(true)
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
+      
+      // Set session cookie
+      await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          user: data.user
+        }),
+      })
+      
       toast.success("Signed in")
       router.push("/profile")
     } catch (error) {
