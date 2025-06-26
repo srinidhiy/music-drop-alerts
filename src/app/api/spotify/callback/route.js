@@ -113,7 +113,9 @@ export async function GET(request) {
         user_id: user.id,
         access_token: tokenData.access_token,
         refresh_token: tokenData.refresh_token,
-        expires_in: tokenData.expires_in
+        expires_at: new Date(Date.now() + tokenData.expires_in * 1000)
+    }, {
+        onConflict: 'user_id'
     })
 
     if (spotifyTokensInsertError) {

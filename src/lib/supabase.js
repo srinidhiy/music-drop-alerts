@@ -127,3 +127,52 @@ export async function saveSpotifyTokens(userId, tokens) {
   if (error) throw error
   return data
 } 
+
+export async function getSpotifyToken(userId) {
+  const { data, error } = await supabase
+    .from('spotify_tokens')
+    .select('*')
+    .eq('user_id', userId)
+    .single()
+
+  if (error) throw error
+
+  if (Date.now() > data.expires_at) {
+    const refreshedToken = await refreshSpotifyToken(data.refresh_token)
+    const { error: updateError } = await supabase
+      .from('spotify_tokens')
+      .update({
+        access_token: refreshedToken.access_token,
+        refresh_token: refreshedToken.refresh_token,
+        expires_at: new Date(Date.now() + refreshedToken.expires_in * 1000)
+      })
+      .eq('user_id', userId)
+
+    if (updateError) throw updateError
+    return refreshedToken.access_token
+  }
+
+  return data.access_token
+}
+
+export async function refreshSpotifyToken(refreshToken) {
+  const url = 'https://accounts.spotify.com/api/token'
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      client_id: process.env.SPOTIFY_CLIENT_ID
+    })
+  })
+
+  const data = await response.json()
+  if (response.ok) {
+    return data
+  } else {
+    throw new Error(data.error_description || 'Failed to refresh Spotify token')
+  }
+}

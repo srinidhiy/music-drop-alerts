@@ -8,7 +8,7 @@ import { Music, Search, Plus, X, Music2Icon, ChevronDown } from "lucide-react"
 import { toast } from "react-toastify"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { getCurrentUser, supabase } from "@/lib/supabase"
+import { getCurrentUser, getSpotifyToken, supabase } from "@/lib/supabase"
 
 export default function ArtistsPage() {
   const router = useRouter()
@@ -17,23 +17,19 @@ export default function ArtistsPage() {
   const [searchResults, setSearchResults] = useState([])
   const [selectedArtists, setSelectedArtists] = useState([])
   const [isLoading, setIsLoading] = useState(false)
-  const [isSearching, setIsSearching] = useState(false)
   const [showSpotifyOptions, setShowSpotifyOptions] = useState(false)
   const [spotifyArtistCount, setSpotifyArtistCount] = useState(10)
   const [user, setUser] = useState(null)
+  const [spotifyToken, setSpotifyToken] = useState(null)
 
   useEffect(() => {
     const checkUser = async () => {
       try {
         const user = await getCurrentUser()
         setUser(user)
-        console.log('User loaded:', user)
-        
-        // Check if we need to load Spotify artists
-        const spotifyConnected = searchParams.get('spotify_connected')
-        if (spotifyConnected === 'true' && user) {
-          await loadSpotifyArtists(user.id)
-        }
+        await loadSpotifyArtists(user.id)
+        const spotifyToken = await getSpotifyToken(user.id)
+        setSpotifyToken(spotifyToken)
       } catch (error) {
         console.log("No user session found")
       }
@@ -46,7 +42,6 @@ export default function ArtistsPage() {
 
   const loadSpotifyArtists = async (userId) => {
     try {
-      console.log('Loading artists for user:', userId)
       const { data: userArtists, error } = await supabase
         .from('user_artists')
         .select(`
@@ -55,7 +50,10 @@ export default function ArtistsPage() {
             id,
             name,
             image_url,
-            spotify_uri
+            spotify_uri,
+            popularity,
+            genres,
+            followers_count
           )
         `)
         .eq('user_id', userId)
@@ -110,15 +108,16 @@ export default function ArtistsPage() {
       setSearchResults([])
       return
     }
-
-    setIsSearching(true)
     
     // TODO: Replace with actual Spotify API search
-    // For now, show empty results
-    setTimeout(() => {
-      setSearchResults([])
-      setIsSearching(false)
-    }, 500)
+    const url = `https://api.spotify.com/v1/search?q=${query}&type=artist&limit=5`
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${spotifyToken}`
+      }
+    })
+    const data = await response.json()
+    setSearchResults(data.artists.items)
   }
 
   const addArtist = (artist) => {
@@ -126,8 +125,16 @@ export default function ArtistsPage() {
       toast.error("Artist already added!")
       return
     }
-    
-    setSelectedArtists([...selectedArtists, artist])
+    const newArtist = {
+        id: artist.id,
+        name: artist.name,
+        image_url: artist.images[0]?.url,
+        spotify_uri: artist.uri,
+        followers_count: artist.followers.total,
+        popularity: artist.popularity,
+        genres: artist.genres
+    }
+    setSelectedArtists([...selectedArtists, newArtist])
     setSearchQuery("")
     setSearchResults([])
     toast.success(`${artist.name} added!`)
@@ -167,7 +174,51 @@ export default function ArtistsPage() {
     setIsLoading(true)
     
     try {
-      // TODO: Save selected artists to database
+      // delete all user_artists for this user
+      const { error: userPreferencesDeleteError } = await supabase.from('user_artists').delete().eq('user_id', user.id)
+      if (userPreferencesDeleteError) {
+        console.error('Delete error:', userPreferencesDeleteError)
+        toast.error("Failed to delete artists")
+        return
+      }
+      
+      // insert new artists
+      console.log('Inserting artists:', selectedArtists)
+      const artistsToInsert = selectedArtists.map(artist => ({
+        id: artist.id,
+        name: artist.name,
+        image_url: artist.image_url,
+        spotify_uri: artist.spotify_uri,
+        popularity: artist.popularity,
+        genres: artist.genres,
+        followers_count: artist.followers_count
+      }))
+      console.log('Artists data to insert:', artistsToInsert)
+      
+      const { error: artistsInsertError } = await supabase.from('artists').upsert(artistsToInsert, {
+        onConflict: 'id'
+      })
+      
+      if (artistsInsertError) {
+        console.error('Artists insert error:', artistsInsertError)
+        toast.error("Failed to save artists")
+        return
+      }
+      
+      // insert new user_artists
+      const { error: userPreferencesInsertError } = await supabase.from('user_artists').upsert(selectedArtists.map(artist => ({
+        user_id: user.id,
+        artist_id: artist.id
+      })), {
+        onConflict: 'user_id, artist_id'
+      })
+      
+      if (userPreferencesInsertError) {
+        console.error('User artists insert error:', userPreferencesInsertError)
+        toast.error("Failed to save artists preferences")
+        return
+      }
+      
       toast.success("Artists saved successfully!")
       router.push("/confirmation")
     } catch (error) {
@@ -286,7 +337,7 @@ export default function ArtistsPage() {
 
           {/* Search Input */}
           <div className="relative mb-6">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 z-10 text-gray-400" />
             <Input
               type="text"
               placeholder="Search for artists..."
@@ -308,7 +359,7 @@ export default function ArtistsPage() {
                   >
                     <div className="flex items-center space-x-3">
                       <img
-                        src={artist.image}
+                        src={artist.images[0]?.url}
                         alt={artist.name}
                         className="w-12 h-12 rounded-full"
                       />
@@ -335,7 +386,7 @@ export default function ArtistsPage() {
                   >
                     <div className="flex items-center space-x-3">
                       <img
-                        src={artist.image_url}
+                        src={artist.image_url || artist.images[0]?.url}
                         alt={artist.name}
                         className="w-10 h-10 rounded-full"
                       />
