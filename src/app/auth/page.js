@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -8,7 +8,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 import { Music, ArrowLeft } from "lucide-react"
 import { toast } from "react-toastify"
 import { useRouter } from "next/navigation"
-import { supabase } from "@/lib/supabase"
+import { getCurrentUser, supabase } from "@/lib/supabase"
 
 export default function Auth() {
   const router = useRouter()
@@ -22,6 +22,16 @@ export default function Auth() {
   const [showOTP, setShowOTP] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
+  useEffect(() => {
+    const checkUser = async () => {
+      const user = await getCurrentUser()
+      console.log("user", user)
+      if (user) {
+        router.push("/profile")
+      }
+    }
+    checkUser()
+  }, [])
   // Phone number validation function
   const validatePhoneNumber = (phone) => {
     const cleaned = phone.replace(/\D/g, '')

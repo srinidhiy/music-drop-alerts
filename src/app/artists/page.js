@@ -4,27 +4,46 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
-import { Music, Search, Plus, X, Music2Icon } from "lucide-react"
+import { Music, Search, Plus, X, Music2Icon, ChevronDown } from "lucide-react"
 import { toast } from "react-toastify"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 
 export default function ArtistsPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState([])
   const [selectedArtists, setSelectedArtists] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
+  const [showSpotifyOptions, setShowSpotifyOptions] = useState(false)
+  const [spotifyArtistCount, setSpotifyArtistCount] = useState(10)
 
-  // Mock search results for now (replace with actual Spotify API call)
-  const mockSearchResults = [
-    { id: "1", name: "Drake", image: "https://via.placeholder.com/60x60/1DB954/FFFFFF?text=D" },
-    { id: "2", name: "Taylor Swift", image: "https://via.placeholder.com/60x60/1DB954/FFFFFF?text=TS" },
-    { id: "3", name: "The Weeknd", image: "https://via.placeholder.com/60x60/1DB954/FFFFFF?text=TW" },
-    { id: "4", name: "Bad Bunny", image: "https://via.placeholder.com/60x60/1DB954/FFFFFF?text=BB" },
-    { id: "5", name: "Ed Sheeran", image: "https://via.placeholder.com/60x60/1DB954/FFFFFF?text=ES" },
-  ]
+  // Handle URL parameters for Spotify OAuth results
+  useEffect(() => {
+    const spotifyConnected = searchParams.get('spotify_connected')
+    const artistCount = searchParams.get('artist_count')
+    const error = searchParams.get('error')
+
+    if (spotifyConnected === 'true') {
+      toast.success(`Successfully connected to Spotify! Imported ${artistCount} artists.`)
+      // TODO: Load the imported artists from the backend
+    } else if (error) {
+      const errorMessages = {
+        'spotify_auth_failed': 'Spotify authentication failed. Please try again.',
+        'no_auth_code': 'No authorization code received from Spotify.',
+        'no_state': 'Security verification failed. Please try again.',
+        'invalid_state': 'Security verification failed. Please try again.',
+        'token_exchange_failed': 'Failed to exchange authorization code. Please try again.',
+        'artists_fetch_failed': 'Failed to fetch your top artists. Please try again.',
+        'callback_failed': 'Something went wrong during the authentication process.'
+      }
+      toast.error(errorMessages[error] || 'An error occurred during Spotify authentication.')
+    }
+  }, [searchParams])
+
+  const artistCountOptions = [5, 10, 15, 20, 25, 50]
 
   const handleSearch = async (query) => {
     if (!query.trim()) {
@@ -64,7 +83,7 @@ export default function ArtistsPage() {
     setIsLoading(true)
     
     try {
-      const response = await fetch('/api/spotify/auth')
+      const response = await fetch(`/api/spotify/auth?artistCount=${spotifyArtistCount}`)
       const data = await response.json()
       
       if (response.ok) {
@@ -138,16 +157,66 @@ export default function ArtistsPage() {
             </p>
           </div>
 
-          {/* Spotify Connect Button */}
+          {/* Spotify Connect Section */}
           <div className="mb-8">
-            <Button
-              onClick={connectSpotify}
-              disabled={isLoading}
-              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 flex items-center justify-center space-x-2"
-            >
-              <Music2Icon className="h-5 w-5" />
-              <span>Connect with Spotify</span>
-            </Button>
+            {!showSpotifyOptions ? (
+              <Button
+                onClick={() => setShowSpotifyOptions(true)}
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 flex items-center justify-center space-x-2"
+              >
+                <Music2Icon className="h-5 w-5" />
+                <span>Connect with Spotify</span>
+              </Button>
+            ) : (
+              <Card className="bg-white/10 backdrop-blur-sm border-white/20">
+                <CardContent className="p-6">
+                  <div className="space-y-4">
+                    <div className="text-center">
+                      <h3 className="text-white font-semibold mb-2">Import from Spotify</h3>
+                      <p className="text-white/60 text-sm">Select how many of your top artists to import</p>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label className="block text-white/80 text-sm font-medium">
+                        Number of artists to import:
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={spotifyArtistCount}
+                          onChange={(e) => setSpotifyArtistCount(Number(e.target.value))}
+                          className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:border-green-400 focus:ring-green-400 appearance-none"
+                        >
+                          {artistCountOptions.map((count) => (
+                            <option key={count} value={count} className="bg-gray-800 text-white">
+                              {count} artists
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/60 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    <div className="flex space-x-3">
+                      <Button
+                        onClick={connectSpotify}
+                        disabled={isLoading}
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 flex items-center justify-center space-x-2"
+                      >
+                        <Music2Icon className="h-4 w-4" />
+                        <span>Import {spotifyArtistCount} Artists</span>
+                      </Button>
+                      <Button
+                        onClick={() => setShowSpotifyOptions(false)}
+                        variant="outline"
+                        className="border-white/20 text-black hover:bg-white/10"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Divider */}
