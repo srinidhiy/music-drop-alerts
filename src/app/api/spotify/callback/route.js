@@ -125,7 +125,9 @@ export async function GET(request) {
     const { error: userPreferencesInsertError } = await supabase.from('user_artists').upsert(artistsData.items.map(artist => ({
         user_id: user.id,
         artist_id: artist.id
-    })))
+    })), {
+        onConflict: 'user_id, artist_id'
+    })
 
     if (userPreferencesInsertError) {
         console.error('User preferences insert error:', userPreferencesInsertError)

@@ -8,6 +8,7 @@ import { Music, Search, Plus, X, Music2Icon, ChevronDown } from "lucide-react"
 import { toast } from "react-toastify"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
+import { getCurrentUser, supabase } from "@/lib/supabase"
 
 export default function ArtistsPage() {
   const router = useRouter()
@@ -19,17 +20,75 @@ export default function ArtistsPage() {
   const [isSearching, setIsSearching] = useState(false)
   const [showSpotifyOptions, setShowSpotifyOptions] = useState(false)
   const [spotifyArtistCount, setSpotifyArtistCount] = useState(10)
+  const [user, setUser] = useState(null)
+
+  useEffect(() => {
+    const checkUser = async () => {
+      try {
+        const user = await getCurrentUser()
+        setUser(user)
+        console.log('User loaded:', user)
+        
+        // Check if we need to load Spotify artists
+        const spotifyConnected = searchParams.get('spotify_connected')
+        if (spotifyConnected === 'true' && user) {
+          await loadSpotifyArtists(user.id)
+        }
+      } catch (error) {
+        console.log("No user session found")
+      }
+    }
+    
+    if (user === null) {
+      checkUser()
+    }
+  }, [])
+
+  const loadSpotifyArtists = async (userId) => {
+    try {
+      console.log('Loading artists for user:', userId)
+      const { data: userArtists, error } = await supabase
+        .from('user_artists')
+        .select(`
+          artist_id,
+          artists (
+            id,
+            name,
+            image_url,
+            spotify_uri
+          )
+        `)
+        .eq('user_id', userId)
+
+      if (error) {
+        console.error('Error fetching user artists:', error)
+        toast.error('Failed to load artists from Spotify')
+        return
+      }
+
+      if (userArtists && userArtists.length > 0) {
+        const artists = userArtists.map(ua => ua.artists).filter(Boolean)
+        setSelectedArtists(prev => {
+          // Merge with existing artists, avoiding duplicates
+          const existingIds = new Set(prev.map(a => a.id))
+          const newArtists = artists.filter(artist => !existingIds.has(artist.id))
+          return [...prev, ...newArtists]
+        })
+        console.log('Loaded artists:', artists)
+      } else {
+        console.log('No artists found for user', userArtists)
+      }
+    } catch (error) {
+      console.error('Error loading Spotify artists:', error)
+      toast.error('Failed to load artists from Spotify')
+    }
+  }
 
   // Handle URL parameters for Spotify OAuth results
   useEffect(() => {
-    const spotifyConnected = searchParams.get('spotify_connected')
-    const artistCount = searchParams.get('artist_count')
     const error = searchParams.get('error')
 
-    if (spotifyConnected === 'true') {
-      toast.success(`Successfully connected to Spotify! Imported ${artistCount} artists.`)
-      // TODO: Load the imported artists from the backend
-    } else if (error) {
+    if (error) {
       const errorMessages = {
         'spotify_auth_failed': 'Spotify authentication failed. Please try again.',
         'no_auth_code': 'No authorization code received from Spotify.',
@@ -37,6 +96,7 @@ export default function ArtistsPage() {
         'invalid_state': 'Security verification failed. Please try again.',
         'token_exchange_failed': 'Failed to exchange authorization code. Please try again.',
         'artists_fetch_failed': 'Failed to fetch your top artists. Please try again.',
+        'user_preferences_insert_failed': 'Failed to save your artist preferences. Please try again.',
         'callback_failed': 'Something went wrong during the authentication process.'
       }
       toast.error(errorMessages[error] || 'An error occurred during Spotify authentication.')
@@ -275,7 +335,7 @@ export default function ArtistsPage() {
                   >
                     <div className="flex items-center space-x-3">
                       <img
-                        src={artist.image}
+                        src={artist.image_url}
                         alt={artist.name}
                         className="w-10 h-10 rounded-full"
                       />
