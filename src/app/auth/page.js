@@ -24,10 +24,14 @@ export default function Auth() {
 
   useEffect(() => {
     const checkUser = async () => {
-      const user = await getCurrentUser()
-      console.log("user", user)
-      if (user) {
-        router.push("/profile")
+      try {
+        const user = await getCurrentUser()
+        console.log("user", user)
+        if (user) {
+          router.push("/profile")
+        }
+      } catch (error) {
+        console.log("No user session found")
       }
     }
     checkUser()

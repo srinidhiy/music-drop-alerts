@@ -13,11 +13,16 @@ export default function MusicNotifyLanding() {
 
   useEffect(() => {
     const checkUser = async () => {
-      const user = await getCurrentUser()
-      console.log(user)
-      if (user) {
-        setIsLoggedIn(true)
-      } else {
+      try {
+        const user = await getCurrentUser()
+        console.log(user)
+        if (user) {
+          setIsLoggedIn(true)
+        } else {
+          setIsLoggedIn(false)
+        }
+      } catch (error) {
+        console.log("No user session found")
         setIsLoggedIn(false)
       }
     }

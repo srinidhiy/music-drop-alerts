@@ -53,12 +53,10 @@ export default function ArtistsPage() {
 
     setIsSearching(true)
     
-    // Simulate API call delay
+    // TODO: Replace with actual Spotify API search
+    // For now, show empty results
     setTimeout(() => {
-      const filtered = mockSearchResults.filter(artist => 
-        artist.name.toLowerCase().includes(query.toLowerCase())
-      )
-      setSearchResults(filtered)
+      setSearchResults([])
       setIsSearching(false)
     }, 500)
   }
