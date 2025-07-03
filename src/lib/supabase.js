@@ -137,42 +137,22 @@ export async function getSpotifyToken(userId) {
 
   if (error) throw error
 
-  if (Date.now() > data.expires_at) {
-    const refreshedToken = await refreshSpotifyToken(data.refresh_token)
+  if (Date.now() > Date.parse(data.expires_at)) {
+    const refreshedToken = await fetch(`/api/spotify/refresh-token?refresh_token=${data.refresh_token}`)
+    const refreshedTokenData = await refreshedToken.json()
     const { error: updateError } = await supabase
       .from('spotify_tokens')
       .update({
-        access_token: refreshedToken.access_token,
-        refresh_token: refreshedToken.refresh_token,
-        expires_at: new Date(Date.now() + refreshedToken.expires_in * 1000)
+        access_token: refreshedTokenData.access_token,
+        refresh_token: refreshedTokenData.refresh_token,
+        expires_at: new Date(Date.now() + refreshedTokenData.expires_in * 1000)
       })
       .eq('user_id', userId)
 
     if (updateError) throw updateError
-    return refreshedToken.access_token
+    return refreshedTokenData.access_token
   }
 
   return data.access_token
 }
 
-export async function refreshSpotifyToken(refreshToken) {
-  const url = 'https://accounts.spotify.com/api/token'
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
-    body: new URLSearchParams({
-      grant_type: 'refresh_token',
-      refresh_token: refreshToken,
-      client_id: process.env.SPOTIFY_CLIENT_ID
-    })
-  })
-
-  const data = await response.json()
-  if (response.ok) {
-    return data
-  } else {
-    throw new Error(data.error_description || 'Failed to refresh Spotify token')
-  }
-}
