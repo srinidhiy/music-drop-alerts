@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 
 export async function GET(request) {
-    console.log("Refreshing Spotify token")
-    console.log(process.env.SPOTIFY_CLIENT_ID)
   const { searchParams } = new URL(request.url);
   const refresh_token = searchParams.get('refresh_token');
 
@@ -30,10 +28,8 @@ export async function GET(request) {
   });
 
   const data = await response.json();
-  console.log("Refreshed token data", data)
 
   if (!response.ok) {
-    console.log("Failed to refresh token", data)
     return NextResponse.json({ error: data.error_description || 'Failed to refresh token' }, { status: 500 });
   }
 
