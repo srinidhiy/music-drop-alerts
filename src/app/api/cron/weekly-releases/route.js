@@ -112,26 +112,14 @@ async function sendSMS(to, message) {
 }
 
 // Helper function to format release message
-function formatReleaseMessage(userName, releases) {
+function formatReleaseMessage(userName, releases, baseUrl) {
   if (releases.length === 0) {
-    return `Hi ${userName}! No new releases from your followed artists this week. Check back next Friday! 🎧`
+    return `No new releases from your followed artists this week. Check back next Friday!`
   }
 
-//   let message = `Hi ${userName}! Here are the new releases from your artists this week: 🎧\n\n`
-  let message = ""
-  releases.forEach((release, index) => {
-    message += `${index + 1}. ${release.artistName} - ${release.albumName}\n`
-    if (release.releaseDate) {
-      message += `   Released: ${release.releaseDate}\n`
-    }
-    if (release.spotifyUrl) {
-      message += `   Listen: ${release.spotifyUrl}\n`
-    }
-    message += '\n'
-  })
-
-//   message += `\nHappy listening! 🎵`
-  return message
+  const releasesUrl = `${baseUrl}/releases/${userName}`
+  
+  return `New Music Alert!\n\nCheck out new releases here: ${releasesUrl}\n\nHappy listening!`
 }
 
 // Helper function to check if release is from the past 7 days
@@ -232,7 +220,9 @@ export async function GET(request) {
         
         if (recentAlbums.length > 0) {
           artistReleases[artist.id] = recentAlbums.map(album => ({
+            artistId: artist.id,
             albumName: album.name,
+            albumImage: album.images[0]?.url,
             artistName: artist.name,
             releaseDate: album.release_date,
             spotifyUrl: album.external_urls.spotify,
@@ -283,8 +273,40 @@ export async function GET(request) {
         // Sort releases by release date (newest first)
         userReleases.sort((a, b) => new Date(b.releaseDate) - new Date(a.releaseDate))
 
+        // Store releases in database for the personalized page
+        if (userReleases.length > 0) {
+          const releasesToStore = userReleases.map(release => ({
+            user_id: user.id,
+            artist_id: release.artistId,
+            artist_name: release.artistName,
+            album_name: release.albumName,
+            album_image: release.albumImage,
+            release_date: release.releaseDate,
+            spotify_url: release.spotifyUrl,
+            album_type: release.albumType,
+            created_at: new Date().toISOString()
+          }))
+
+          // Clear old releases for this user
+          await supabaseAdmin
+            .from('user_releases')
+            .delete()
+            .eq('user_id', user.id)
+
+          // Insert new releases
+          const { error: releasesInsertError } = await supabaseAdmin
+            .from('user_releases')
+            .insert(releasesToStore)
+
+          if (releasesInsertError) {
+            console.error('Error storing releases:', releasesInsertError)
+            // Don't fail the whole process for this
+          }
+        }
+
         // Format and send SMS
-        const message = formatReleaseMessage(user.id, userReleases)
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://yourdomain.com'
+        const message = formatReleaseMessage(user.id, userReleases, baseUrl)
         await sendSMS(user.phone_number, message)
         
         console.log(`SMS sent to user ${user.id} for ${userReleases.length} releases`)
