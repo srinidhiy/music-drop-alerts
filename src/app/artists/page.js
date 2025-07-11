@@ -21,6 +21,7 @@ export default function ArtistsPage() {
   const [spotifyArtistCount, setSpotifyArtistCount] = useState(10)
   const [user, setUser] = useState(null)
   const [spotifyToken, setSpotifyToken] = useState(null)
+  const [smsConsent, setSmsConsent] = useState(false)
 
   useEffect(() => {
     const checkUser = async () => {
@@ -404,10 +405,29 @@ export default function ArtistsPage() {
             </div>
           )}
 
+          {/* SMS Consent Checkbox */}
+          {selectedArtists.length > 0 && (
+            <div className="mb-6">
+              <div className="flex items-start space-x-3 p-4 bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg">
+                <input
+                  type="checkbox"
+                  id="sms-consent"
+                  checked={smsConsent}
+                  onChange={(e) => setSmsConsent(e.target.checked)}
+                  className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-white/30 rounded bg-white/10"
+                />
+                <label htmlFor="sms-consent" className="text-white/90 text-sm leading-relaxed">
+                  I consent to receive weekly SMS notifications about new releases from my selected artists. 
+                  Message and data rates may apply. You can opt out at any time by replying "STOP".
+                </label>
+              </div>
+            </div>
+          )}
+
           {/* Continue Button */}
           <Button
             onClick={handleContinue}
-            disabled={isLoading || selectedArtists.length === 0}
+            disabled={isLoading || selectedArtists.length === 0 || !smsConsent}
             className="w-full bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-semibold py-3 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? "Saving..." : `Continue with ${selectedArtists.length} Artist${selectedArtists.length !== 1 ? 's' : ''}`}

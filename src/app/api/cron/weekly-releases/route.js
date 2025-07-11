@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import pLimit from 'p-limit'
 
 const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN
@@ -116,8 +117,8 @@ function formatReleaseMessage(userName, releases) {
     return `Hi ${userName}! No new releases from your followed artists this week. Check back next Friday! 🎧`
   }
 
-  let message = `Hi ${userName}! Here are the new releases from your artists this week: 🎧\n\n`
-  
+//   let message = `Hi ${userName}! Here are the new releases from your artists this week: 🎧\n\n`
+  let message = ""
   releases.forEach((release, index) => {
     message += `${index + 1}. ${release.artistName} - ${release.albumName}\n`
     if (release.releaseDate) {
@@ -129,7 +130,7 @@ function formatReleaseMessage(userName, releases) {
     message += '\n'
   })
 
-  message += `\nHappy listening! 🎵`
+//   message += `\nHappy listening! 🎵`
   return message
 }
 
@@ -217,9 +218,10 @@ export async function GET(request) {
     }
 
     // Check all artists for recent releases
+    const limit = pLimit(5)
     const artistReleases = {}
     
-    for (const artist of allArtists) {
+    await Promise.all(allArtists.map(artist => limit(async () => {
       try {
         console.log(`Checking releases for ${artist.name} (${artist.id})...`)
         
@@ -246,7 +248,7 @@ export async function GET(request) {
         console.error(`Error fetching albums for artist ${artist.id}:`, error)
         // Continue with other artists
       }
-    }
+    })));
 
     console.log(`Found recent releases for ${Object.keys(artistReleases).length} artists`)
 
@@ -282,8 +284,8 @@ export async function GET(request) {
         userReleases.sort((a, b) => new Date(b.releaseDate) - new Date(a.releaseDate))
 
         // Format and send SMS
-        // const message = formatReleaseMessage(user.id, userReleases)
-        // await sendSMS(user.phone_number, message)
+        const message = formatReleaseMessage(user.id, userReleases)
+        await sendSMS(user.phone_number, message)
         
         console.log(`SMS sent to user ${user.id} for ${userReleases.length} releases`)
         successCount++
