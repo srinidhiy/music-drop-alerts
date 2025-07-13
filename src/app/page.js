@@ -29,6 +29,7 @@ export default function MusicNotifyLanding() {
     checkUser()
   }, [])
 
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
       {/* Header */}
@@ -41,8 +42,8 @@ export default function MusicNotifyLanding() {
             <span className="text-white font-bold text-xl">TuneLert</span>
           </div>  
           <span className="text-white font-bold text-md">
-            {isLoggedIn ? <Link href="/profile">Profile</Link> : <Link href="/auth">Sign In</Link>}
-          </span>        
+            {isLoggedIn ? <Link href="/artists">Manage Artists</Link> : <Link href="/auth">Sign In</Link>}
+          </span>           
         </div>
       </header>
 

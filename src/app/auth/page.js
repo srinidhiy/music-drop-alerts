@@ -28,7 +28,7 @@ export default function Auth() {
         const user = await getCurrentUser()
         console.log("user", user)
         if (user) {
-          router.push("/profile")
+          router.push("/artists")
         }
       } catch (error) {
         console.log("No user session found")
@@ -189,7 +189,7 @@ export default function Auth() {
       })
       
       toast.success("Signed in")
-      router.push("/profile")
+      router.push("/artists")
     } catch (error) {
       toast.error("Authentication failed")
     } finally {

@@ -8,7 +8,7 @@ import { Music, Search, Plus, X, Music2Icon, ChevronDown } from "lucide-react"
 import { toast } from "react-toastify"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { getCurrentUser, getSpotifyToken, supabase } from "@/lib/supabase"
+import { getCurrentUser, getSpotifyToken, signOut, supabase } from "@/lib/supabase"
 
 export default function ArtistsPage() {
   const router = useRouter()
@@ -230,6 +230,17 @@ export default function ArtistsPage() {
     }
   }
 
+  const handleSignOut = async () => {
+    try {
+      await signOut()
+      router.push('/')
+      toast.success('Signed out successfully!')
+    } catch (error) {
+      console.error('Error signing out:', error)
+      toast.error('Failed to sign out')
+    }
+  }
+
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       handleSearch(searchQuery)
@@ -247,11 +258,15 @@ export default function ArtistsPage() {
             <div className="bg-white/10 backdrop-blur-sm rounded-full p-2">
               <Music className="h-6 w-6 text-white" />
             </div>
-            <span className="text-white font-bold text-xl">TuneLert</span>
+            <Link href="/"> 
+              <span className="text-white font-bold text-xl">TuneLert</span>
+            </Link>
           </div>
-          <span className="text-white font-bold text-md">
-            <Link href="/profile">Profile</Link>
-          </span>        
+          <div className="flex items-center space-x-2">
+            <span className="text-white font-bold text-md">
+              <button onClick={handleSignOut}>Sign Out</button>
+            </span>        
+          </div>
         </div>
       </header>
 
