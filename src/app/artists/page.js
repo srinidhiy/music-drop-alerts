@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
@@ -10,7 +10,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { getCurrentUser, getSpotifyToken, signOut, supabase } from "@/lib/supabase"
 
-export default function ArtistsPage() {
+function ArtistsPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [searchQuery, setSearchQuery] = useState("")
@@ -199,29 +199,29 @@ export default function ArtistsPage() {
       const { error: artistsInsertError } = await supabase.from('artists').upsert(artistsToInsert, {
         onConflict: 'id'
       })
-      
+
       if (artistsInsertError) {
         console.error('Artists insert error:', artistsInsertError)
         toast.error("Failed to save artists")
         return
       }
-      
-      // insert new user_artists
-      const { error: userPreferencesInsertError } = await supabase.from('user_artists').upsert(selectedArtists.map(artist => ({
+
+      // insert user_artists relationships
+      const userArtistsToInsert = selectedArtists.map(artist => ({
         user_id: user.id,
         artist_id: artist.id
-      })), {
-        onConflict: 'user_id, artist_id'
-      })
-      
-      if (userPreferencesInsertError) {
-        console.error('User artists insert error:', userPreferencesInsertError)
-        toast.error("Failed to save artists preferences")
+      }))
+
+      const { error: userArtistsInsertError } = await supabase.from('user_artists').insert(userArtistsToInsert)
+
+      if (userArtistsInsertError) {
+        console.error('User artists insert error:', userArtistsInsertError)
+        toast.error("Failed to save artist preferences")
         return
       }
-      
+
       toast.success("Artists saved successfully!")
-      router.push("/confirmation")
+      router.push(`/confirmation`)
     } catch (error) {
       console.error('Error:', error)
       toast.error("Something went wrong")
@@ -234,10 +234,8 @@ export default function ArtistsPage() {
     try {
       await signOut()
       router.push('/')
-      toast.success('Signed out successfully!')
     } catch (error) {
       console.error('Error signing out:', error)
-      toast.error('Failed to sign out')
     }
   }
 
@@ -450,5 +448,13 @@ export default function ArtistsPage() {
         </div>
       </main>
     </div>
+  )
+}
+
+export default function ArtistsPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ArtistsPageContent />
+    </Suspense>
   )
 } 
