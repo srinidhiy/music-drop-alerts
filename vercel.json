@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/weekly-releases",
-      "schedule": "42 20 * * 0"
+      "schedule": "15 4 * * 5"
     }
   ]
 } 
