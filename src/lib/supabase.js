@@ -135,22 +135,53 @@ export async function getSpotifyToken(userId) {
     .eq('user_id', userId)
     .single()
 
-  if (error) throw error
+  if (error) {
+    console.error('Error fetching Spotify token:', error)
+    return null
+  }
 
+  if (!data) {
+    console.log('No Spotify token found for user')
+    return null
+  }
+
+  // Check if token is expired
   if (Date.now() > Date.parse(data.expires_at)) {
-    const refreshedToken = await fetch(`/api/spotify/refresh-token?refresh_token=${data.refresh_token}`)
-    const refreshedTokenData = await refreshedToken.json()
-    const { error: updateError } = await supabase
-      .from('spotify_tokens')
-      .update({
-        access_token: refreshedTokenData.access_token,
-        refresh_token: refreshedTokenData.refresh_token,
-        expires_at: new Date(Date.now() + refreshedTokenData.expires_in * 1000)
-      })
-      .eq('user_id', userId)
+    try {
+      console.log('Token expired, attempting refresh...')
+      const refreshResponse = await fetch(`/api/spotify/refresh-token?refresh_token=${data.refresh_token}`)
+      
+      if (!refreshResponse.ok) {
+        console.error('Failed to refresh token:', refreshResponse.status)
+        return null
+      }
+      
+      const refreshedTokenData = await refreshResponse.json()
+      
+      if (!refreshedTokenData.access_token) {
+        console.error('No access token in refresh response')
+        return null
+      }
 
-    if (updateError) throw updateError
-    return refreshedTokenData.access_token
+      const { error: updateError } = await supabase
+        .from('spotify_tokens')
+        .update({
+          access_token: refreshedTokenData.access_token,
+          refresh_token: refreshedTokenData.refresh_token || data.refresh_token,
+          expires_at: new Date(Date.now() + (refreshedTokenData.expires_in || 3600) * 1000)
+        })
+        .eq('user_id', userId)
+
+      if (updateError) {
+        console.error('Error updating refreshed token:', updateError)
+        return null
+      }
+      
+      return refreshedTokenData.access_token
+    } catch (refreshError) {
+      console.error('Error refreshing token:', refreshError)
+      return null
+    }
   }
 
   return data.access_token

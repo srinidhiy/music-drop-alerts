@@ -109,16 +109,110 @@ function ArtistsPageContent() {
       setSearchResults([])
       return
     }
+
+    if (!spotifyToken) {
+      toast.error("Please connect your Spotify account first")
+      return
+    }
+
+    console.log("Token:", spotifyToken)
+    const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=artist&limit=5`
     
-    // TODO: Replace with actual Spotify API search
-    const url = `https://api.spotify.com/v1/search?q=${query}&type=artist&limit=5`
-    const response = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${spotifyToken}`
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${spotifyToken}`
+        }
+      })
+
+      console.log("Response status:", response.status)
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.error("401 Unauthorized - Token is invalid or expired")
+          toast.info("Token expired, attempting to refresh...")
+          
+          // Try to refresh the token
+          const newToken = await refreshSpotifyToken()
+          if (newToken) {
+            setSpotifyToken(newToken)
+            toast.success("Token refreshed! Try searching again.")
+          } else {
+            toast.error("Failed to refresh token. Please reconnect your Spotify account.")
+            setSpotifyToken(null)
+          }
+        } else {
+          console.error(`Spotify API error: ${response.status}`)
+          toast.error(`Spotify API error: ${response.status}`)
+        }
+        setSearchResults([])
+        return
       }
-    })
-    const data = await response.json()
-    setSearchResults(data.artists.items)
+
+      const data = await response.json()
+      console.log("Spotify response:", data)
+      
+      if (!data.artists || !data.artists.items) {
+        console.error('Unexpected response format:', data)
+        toast.error("Unexpected response from Spotify")
+        setSearchResults([])
+        return
+      }
+
+      setSearchResults(data.artists.items)
+    } catch (error) {
+      console.error('Search error:', error)
+      toast.error("Failed to search artists")
+      setSearchResults([])
+    }
+  }
+
+  const refreshSpotifyToken = async () => {
+    if (!user) return null
+
+    try {
+      // Get the refresh token from the database
+      const { data: tokenData, error } = await supabase
+        .from('spotify_tokens')
+        .select('refresh_token')
+        .eq('user_id', user.id)
+        .single()
+
+      if (error || !tokenData?.refresh_token) {
+        console.error('No refresh token found:', error)
+        return null
+      }
+
+      // Call our refresh endpoint
+      const response = await fetch(`/api/spotify/refresh-token?refresh_token=${tokenData.refresh_token}`)
+      const data = await response.json()
+
+      if (!response.ok) {
+        console.error('Token refresh failed:', data)
+        return null
+      }
+
+      // Update the token in the database
+      const { error: updateError } = await supabase
+        .from('spotify_tokens')
+        .update({
+          access_token: data.access_token,
+          refresh_token: data.refresh_token || tokenData.refresh_token,
+          expires_at: new Date(Date.now() + (data.expires_in || 3600) * 1000)
+        })
+        .eq('user_id', user.id)
+
+      if (updateError) {
+        console.error('Error updating refreshed token:', updateError)
+        return null
+      }
+
+      console.log('Token refreshed successfully')
+      return data.access_token
+    } catch (error) {
+      console.error('Error refreshing token:', error)
+      return null
+    }
   }
 
   const addArtist = (artist) => {
